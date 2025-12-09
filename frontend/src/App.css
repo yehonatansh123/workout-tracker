@@ -1,0 +1,569 @@
+#root {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem;
+  text-align: center;
+}
+
+.ai-feedback-card {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 16px 18px;
+  margin-top: 12px;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
+  border: 1px solid #e2e8f0;
+}
+
+.ai-feedback-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between; /* ⬅ title left, button right */
+  gap: 12px;
+}
+
+.ai-feedback-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+
+.ai-feedback-text {
+  white-space: pre-wrap; /* keep line breaks from the model */
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.ai-feedback-empty {
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+
+/* === Base page === */
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  background: #e6edf9;          /* dark navy background */
+  color: #111827;
+}
+
+/* Main app card in the middle of the dark background */
+.App {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 32px 16px 40px;
+  box-sizing: border-box;
+
+  max-width: 1200px;
+  margin: 0 auto;
+  background: #f9fafb;          /* light card */
+  border-radius: 24px;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.18);
+}
+
+/* === Header === */
+
+
+
+.app-header {
+  width: 100%;
+  max-width: 1100px;
+  margin-bottom: 16px;
+  text-align: center;
+  padding-bottom: 12px;
+  background: radial-gradient(circle at top, rgba(37, 99, 235, 0.18), transparent);
+  border-radius: 16px;
+}
+
+.app-header h1 {
+  margin: 12px 0 0;
+  font-size: 2.1rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
+
+.app-subtitle {
+  margin: 4px 0 8px;
+  color: #6b7280;
+  font-size: 0.95rem;
+}
+
+
+.app-header {
+  position: relative;
+}
+
+.app-header::after {
+  content: '';
+  display: block;
+  width: 72px;
+  height: 3px;
+  border-radius: 999px;
+  background-color: #2563eb;
+  margin-top: 10px;
+}
+
+.app-subtitle {
+  margin: 4px 0 0;
+  color: #6b7280;
+  font-size: 0.95rem;
+}
+
+.section-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 8px 2px 6px;
+}
+
+.section-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.section-subtitle {
+  font-size: 0.8rem;
+  color: #6b7280;
+  background-color: #e5edff;
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+
+
+/* === Filters bar === */
+
+.filters-bar {
+  width: 100%;
+  max-width: 1100px;
+  margin-bottom: 12px;
+}
+
+.filters-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background-color: #eef2ff;
+  border-radius: 12px;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+  box-sizing: border-box;
+}
+
+.date-filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.date-range-separator {
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+.filters-row select,
+.filters-row input[type="date"] {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  background-color: #f9fafb;
+  font-size: 0.9rem;
+}
+
+.filters-row select:focus,
+.filters-row input[type="date"]:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.2);
+}
+
+/* === Main layout (two columns) === */
+
+.main-layout {
+  width: 100%;
+  max-width: 1100px;
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1.1fr);
+  gap: 24px;
+  margin-top: 8px;
+  box-sizing: border-box;
+}
+
+.left-column,
+.right-column {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+@media (max-width: 900px) {
+  .main-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .filters-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .date-filters {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
+/* === Dashboard summary === */
+
+.summary-number {
+  font-weight: 600;
+  color: #2563eb;
+}
+
+
+.dashboard-summary {
+  background: #f1f5f9;         /* light blue-grey */
+  border-radius: 16px;
+  padding: 16px 18px;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
+  border: 1px solid #e2e8f0;
+}
+
+
+.dashboard-summary h2 {
+  margin: 0 0 8px;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+
+.dashboard-summary p {
+  margin: 4px 0;
+  font-size: 0.95rem;
+  color: #4b5563;
+}
+
+/* === Workout list === */
+
+.workout-list {
+  background-color: #ffffff;
+  border-radius: 16px;
+  padding: 14px 16px 18px;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.06);
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.workout-list > p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+/* Individual workout card */
+
+.workout-card {
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: box-shadow 0.18s ease, transform 0.1s ease,
+    border-color 0.18s ease;
+     
+}
+
+.workout-card:last-child {
+  margin-bottom: 0;
+}
+
+.workout-card h2 {
+  margin: 0 0 4px;
+  font-size: 1rem;
+  text-transform: capitalize;
+}
+
+.workout-card p {
+  margin: 2px 0;
+  font-size: 0.9rem;
+  color: #4b5563;
+}
+
+.workout-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.09);
+  border-color: #d1d5db;
+}
+
+.card-actions {
+  margin-top: 8px;
+  display: flex;
+  gap: 8px;
+}
+
+/* === Add workout form === */
+
+.add-workout {
+  background-color: #ffffff;
+  border-radius: 16px;
+  padding: 16px 18px 18px;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
+  border: 1px solid #e2e8f0;
+}
+
+.add-workout h2 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  font-size: 1.2rem;
+}
+
+.add-workout form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.add-workout label {
+  font-size: 0.9rem;
+  color: #374151;
+}
+
+.add-workout input,
+.add-workout select {
+  width: 100%;
+  margin-top: 4px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  background-color: #f9fafb;
+  font-size: 0.9rem;
+  box-sizing: border-box;
+}
+
+.add-workout input:focus,
+.add-workout select:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.2);
+}
+
+.workout-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9rem;
+  color: #4b5563;
+}
+
+.intensity-badge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+/* colors per intensity */
+.intensity-easy {
+  background-color: #dcfce7; /* light green */
+  color: #166534;            /* dark green */
+}
+
+.intensity-moderate {
+  background-color: #fef3c7; /* light amber */
+  color: #92400e;            /* dark amber */
+}
+
+.intensity-hard {
+  background-color: #fee2e2; /* light red */
+  color: #b91c1c;            /* dark red */
+}
+
+.intensity-na {
+  background-color: #e5e7eb;
+  color: #374151;
+}
+
+
+/* base left border (will be overridden) */
+.workout-card {
+  border-left: 4px solid transparent;
+}
+
+/* type-specific accents */
+.workout-card--run {
+  border-left-color: #2563eb;
+  background: linear-gradient(
+    to right,
+    rgba(37, 99, 235, 0.04),
+    #ffffff
+  );
+}
+
+.workout-card--gym {
+  border-left-color: #7c3aed;
+  background: linear-gradient(
+    to right,
+    rgba(124, 58, 237, 0.04),
+    #ffffff
+  );
+}
+
+.workout-card--basketball {
+  border-left-color: #f97316;
+  background: linear-gradient(
+    to right,
+    rgba(249, 115, 22, 0.04),
+    #ffffff
+  );
+}
+
+.workout-card--surf {
+  border-left-color: #14b8a6;
+  background: linear-gradient(
+    to right,
+    rgba(20, 184, 166, 0.04),
+    #ffffff
+  );
+}
+
+.workout-card--other {
+  border-left-color: #6b7280;
+  background: linear-gradient(
+    to right,
+    rgba(107, 114, 128, 0.04),
+    #ffffff
+  );
+}
+
+/* === Buttons === */
+
+
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: none;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.18s ease, transform 0.1s ease,
+    box-shadow 0.18s ease;
+}
+
+/* main CTA */
+.btn-primary {
+  background-color: #2563eb;
+  color: #ffffff;
+  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.3);
+}
+
+.btn-primary:disabled {
+  background-color: #9ca3af;
+  box-shadow: none;
+  cursor: default;
+}
+
+/* secondary (refresh) */
+.btn-secondary {
+  background-color: #e5e7eb;
+  color: #111827;
+}
+
+/* outline (edit) */
+.btn-outline {
+  background-color: transparent;
+  border: 1px solid #d1d5db;
+  color: #374151;
+}
+
+/* danger (delete) */
+.btn-danger {
+  background-color: #ef4444;
+  color: #ffffff;
+}
+
+.btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.12);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: #1d4ed8;
+}
+
+.btn-secondary:hover {
+  background-color: #d1d5db;
+}
+
+.btn-outline:hover {
+  background-color: #f9fafb;
+}
+
+.btn-danger:hover {
+  background-color: #dc2626;
+}
+
+/* === Errors === */
+
+.form-error {
+  margin: 4px 0 8px;
+  color: #b91c1c;
+  font-size: 0.9rem;
+  background-color: #fee2e2;
+  border-radius: 8px;
+  padding: 6px 8px;
+}
+
+.field-error {
+  margin: 2px 0 0;
+  color: #b91c1c;
+  font-size: 0.8rem;
+}
+
+
+
+.logo {
+  height: 6em;
+  padding: 1.5em;
+  will-change: filter;
+  transition: filter 300ms;
+}
+.logo:hover {
+  filter: drop-shadow(0 0 2em #646cffaa);
+}
+.logo.react:hover {
+  filter: drop-shadow(0 0 2em #61dafbaa);
+}
+
+@keyframes logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  a:nth-of-type(2) .logo {
+    animation: logo-spin infinite 20s linear;
+  }
+}
+
+.card {
+  padding: 2em;
+}
+
+.read-the-docs {
+  color: #888;
+}
