@@ -1,6 +1,11 @@
 import { useState, useEffect } from 'react';
 import './App.css';
 
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+
+console.log('API_BASE_URL =', API_BASE_URL);
+
 
 function App() {
   const [workouts, setWorkouts] = useState([]);
@@ -27,7 +32,7 @@ function App() {
 
   async function fetchWorkouts() {
     try {
-      const response = await fetch('http://localhost:3000/api/workouts');
+      const response = await fetch(`${API_BASE_URL}/api/workouts`);
       if (!response.ok) {
         console.error('failed to fetch workouts, status:', response.status);
         return;
@@ -41,9 +46,9 @@ function App() {
 
   async function handleDeleteWorkout(id) {
     try {
-      const response = await fetch('http://localhost:3000/api/workouts/' + id, {
+      const response = await fetch(`${API_BASE_URL}/api/workouts/` + id, {
         method: 'DELETE',
-      });
+      }); 
 
       if (!response.ok) {
         console.log('Failed to delete, Status:' + response.status);
@@ -79,14 +84,14 @@ function App() {
 
     try {
       const response = await fetch(
-        'http://localhost:3000/api/workouts/' + id,
+        `${API_BASE_URL}/api/workouts/` + id,
         {
           method: 'PATCH',
           headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ durationMinutes: newDurationNum }),
-        }
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ durationMinutes: newDurationNum }),
+        } 
       );
 
       if (!response.ok) {
@@ -176,7 +181,7 @@ function App() {
     setNewFormStatus('submitting');
 
     try {
-      const response = await fetch('http://localhost:3000/api/workouts', {
+      const response = await fetch(`${API_BASE_URL}/api/workouts`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -215,7 +220,7 @@ function App() {
     setNewCoachError('');
 
     try{
-      const response = await fetch('http://localhost:3000/api/coach/feedback', {
+      const response = await fetch(`${API_BASE_URL}/api/coach/feedback`, {
         method: 'GET',
       })
 
