@@ -6,6 +6,9 @@ const openai = new openAI({apiKey: process.env.OPENAI_API_KEY});
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const JWT_SECRET = process.env.JWT_SECRET || 'a_fallback_secret_for_dev_if_env_fails';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -34,9 +37,55 @@ mongoose
     console.error('❌ Failed to connect to MongoDB', err);
   });
 
+const userSchema = new mongoose.Schema(
+  {
+    email: {
+      type: String,
+      unique: true,
+      required: true,
+      lowercase: true,
+      trim: true,
+    },
+
+    password: {
+      type: String,
+      required: true,
+    },
+  },
+  {
+    timestamps: true
+  }
+);
+
+
+userSchema.pre('save', async function() { // 1. Removed 'next' parameter
+  if (!this.isModified('password')){
+    return; // 2. Just return to stop this function and continue saving
+  }
+
+  try {
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
+    // 3. No next() needed here. The function just ends.
+  } catch (error) {
+    throw error; // 4. Throw the error instead of calling next(error)
+  }
+});
+
+
+userSchema.methods.comparePassword = function(candidatePassword){
+  return bcrypt.compare(candidatePassword, this.password);
+}
+
+const User = mongoose.model('User',userSchema);
+
+
+
+
 // Define Workout schema
 const workoutSchema = new mongoose.Schema(
   {
+
     type: {
       type: String,
       enum: ALLOWED_TYPES,
@@ -67,6 +116,11 @@ const workoutSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    user_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    required: true,
+    ref: 'User' // This tells Mongoose it belongs to the User model
+  }
   },
   {
     timestamps: true, // adds createdAt, updatedAt
@@ -194,6 +248,37 @@ function buildWorkoutSummary(workouts){
   return lines.join('\n');
 }
 
+const generateToken = (id) => {
+  return jwt.sign({id}, JWT_SECRET, {
+    expiresIn: '30d',
+  });
+}
+
+function protect (req,res,next){
+  let token;
+
+  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')){
+    try{
+
+      token = req.headers.authorization.split(' ')[1];
+
+      const decoded = jwt.verify(token, JWT_SECRET);
+
+      req.user = decoded.id;
+
+      return next();
+    }
+    catch(error){
+      console.error('Token verification failed:', error);
+      return res.status(401).json({error:'Not authorized, token failed'});
+    }
+  }
+
+  if (!token){
+    return res.status(401).json({error: 'Not authorized, no token'});
+  }
+}
+
 // --- Routes ---
 
 // Health check
@@ -202,7 +287,7 @@ app.get('/api/health', (_, res) => {
 });
 
 // Create workout
-app.post('/api/workouts', async (req, res) => {
+app.post('/api/workouts',protect, async (req, res) => {
   const err = validateWorkout(req.body);
   if (err) return res.status(400).json({ error: err });
 
@@ -238,6 +323,9 @@ app.post('/api/workouts', async (req, res) => {
 
   try {
     const workout = new Workout({
+
+      user_id: req.user,
+      
       type,
       date,
       durationMinutes: Number(durationMinutes),
@@ -256,12 +344,12 @@ app.post('/api/workouts', async (req, res) => {
 });
 
 // Get workouts (with type/from/to filters)
-app.get('/api/workouts', async (req, res) => {
+app.get('/api/workouts',protect, async (req, res) => {
   const { type, from, to } = req.query;
 
   const t = type ? String(type).toLowerCase() : null;
 
-  const filter = {};
+  const filter = {user_id: req.user};
 
   if (t) {
     filter.type = t;
@@ -285,11 +373,13 @@ app.get('/api/workouts', async (req, res) => {
 });
 
 // Delete workout
-app.delete('/api/workouts/:id', async (req, res) => {
-  const workoutId = String(req.params.id);
-
+app.delete('/api/workouts/:id',protect, async (req, res) => {
+  
   try {
-    const deleted = await Workout.findByIdAndDelete(workoutId);
+    const deleted = await Workout.findOneAndDelete({
+      _id: req.params.id,
+      user_id: req.user,
+    });
     if (!deleted) {
       return res.status(404).json({ error: 'workout not found' });
     }
@@ -305,7 +395,7 @@ app.delete('/api/workouts/:id', async (req, res) => {
 });
 
 // Patch workout
-app.patch('/api/workouts/:id', async (req, res) => {
+app.patch('/api/workouts/:id',protect, async (req, res) => {
   const { type, date, durationMinutes, distanceKm, intensity, notes, tags } =
     req.body;
 
@@ -388,7 +478,7 @@ app.patch('/api/workouts/:id', async (req, res) => {
   }
 
   try {
-    const updated = await Workout.findByIdAndUpdate(workoutId, update, {
+    const updated = await Workout.findOneAndDelete({_id:workoutId, user_id: req.user}, update, {
       new: true,
     });
     if (!updated) {
@@ -404,9 +494,9 @@ app.patch('/api/workouts/:id', async (req, res) => {
   }
 });
 
-app.get('/api/coach/feedback', async (req,res) =>{
+app.get('/api/coach/feedback',protect, async (req,res) =>{
   try{
-    const workouts = await Workout.find({})
+    const workouts = await Workout.find({user_id:req.user})
     .sort({ date:-1 })
     .limit(20);
 
@@ -436,7 +526,7 @@ app.get('/api/coach/feedback', async (req,res) =>{
     ];
 
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4.1-mini',
+      model: 'gpt-4o-mini',
       messages,
     })
 
@@ -464,6 +554,67 @@ app.get('/api/coach/feedback', async (req,res) =>{
     }
 
     return res.status(500).json({error: 'failed to generate feedback'});
+  }
+})
+
+app.post('/api/users/signup', async (req,res) => {
+  try{
+    const {email, password} = req.body;
+    if (!email || email.trim() === '' || !password || password.trim() === ''){
+      return res.status(400).json({error:'email or password do not exist'});
+    }
+
+    const userExists = await User.findOne({email});
+    if (userExists){
+      return res.status(400).json({error: 'user already exists'});
+    }
+
+    const user = await User.create({email, password});
+    let token = generateToken(user._id);
+    
+    res.status(201).json({
+      id: user._id,
+
+      email: user.email,
+      
+      token: token,
+    });
+  }
+  catch(error){
+    console.error('error while creating user', error);
+    res.status(500).json({error:'Internal server error'});
+  }
+})
+
+app.post('/api/users/login', async (req,res) => {
+  try{
+    const {email, password} = req.body;
+    if (!email || email.trim() === '' || !password || password.trim() === ''){
+      return res.status(400).json({error:'email or password do not exist'});
+    }
+
+    const user = await User.findOne({email: email});
+    if (!user){
+      return res.status(401).json({error:'Invalid email or password'});
+    }
+
+    let isOk = await user.comparePassword(password);
+
+    if (isOk){
+      let token = generateToken(user._id);
+      return res.status(200).json({
+        id: user._id, 
+        email: email, 
+        token: token});
+    }
+    else{
+      return res.status(401).json({error:'Invalid email or password'});
+    }
+
+  }
+  catch(error){
+    console.error('failed logging in:', error);
+    res.status(500).json({error:'internal error'});
   }
 })
 

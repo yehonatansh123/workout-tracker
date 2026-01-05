@@ -1,11 +1,7 @@
 import { useState, useEffect } from 'react';
 import './App.css';
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
-
-console.log('API_BASE_URL =', API_BASE_URL);
-
+const API_BASE_URL = 'http://localhost:3000';
 
 function App() {
   const [workouts, setWorkouts] = useState([]);
@@ -30,526 +26,340 @@ function App() {
   const [coachLoading, setNewCoachLoading] = useState(false);
   const [coachError, setNewCoachError] = useState('');
 
-  async function fetchWorkouts() {
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [isLogin, setIsLogin] = useState(true);
+  const [authError, setAuthError] = useState('');
+
+  const [user, setUser] = useState(() => {
+    const savedUser = localStorage.getItem('workoutUser');
+    return savedUser ? JSON.parse(savedUser) : null;
+  });
+
+  function getAuthHeaders() {
+    const headers = { 'Content-type': 'application/json' };
+    if (user && user.token) {
+      headers['Authorization'] = `Bearer ${user.token}`;
+    }
+    return headers;
+  }
+
+  function handleLogout() {
+    setUser(null);
+    localStorage.removeItem('workoutUser');
+    setWorkouts([]);
+  }
+
+  async function handleAuthSubmit(e) {
+    e.preventDefault();
+    setAuthError('');
+    const url = isLogin ? '/api/users/login' : '/api/users/signup';
     try {
-      const response = await fetch(`${API_BASE_URL}/api/workouts`);
+      const response = await fetch(`${API_BASE_URL}${url}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: authEmail, password: authPassword })
+      });
+      const data = await response.json();
       if (!response.ok) {
-        console.error('failed to fetch workouts, status:', response.status);
+        setAuthError(data.error);
         return;
       }
+      
+      localStorage.setItem('workoutUser', JSON.stringify(data));
+      setUser(data);
+      fetchWorkouts(data);
+      setAuthPassword('');
+    } catch (error) {
+      setAuthError("Could not connect to the server. Please try again later.");
+    }
+  }
+
+  async function fetchWorkouts(currentUser = user) {
+    if (!currentUser || !currentUser.token) {
+      setWorkouts([]);
+      return;
+    }
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/workouts`, {
+        headers: {
+          'Content-type': 'application/json',
+          'Authorization': `Bearer ${currentUser.token}`
+        }
+      });
       const data = await response.json();
-      setWorkouts(data);
+      if (response.ok) {
+        setWorkouts(data);
+      } else {
+        setWorkouts([]); // Clear list if fetch fails
+      }
     } catch (e) {
       console.error('failed', e);
     }
   }
 
   async function handleDeleteWorkout(id) {
+    if (!user || !user.token) return;
+
+    if (!window.confirm("Are you sure you want to delete this workout?")) return;
     try {
-      const response = await fetch(`${API_BASE_URL}/api/workouts/` + id, {
+      const response = await fetch(`${API_BASE_URL}/api/workouts/${id}`, {
         method: 'DELETE',
-      }); 
-
-      if (!response.ok) {
-        console.log('Failed to delete, Status:' + response.status);
-        return;
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${user.token}`
+        }
+      });
+      if (response.ok) {
+        setWorkouts((prevWorkouts) => prevWorkouts.filter((w) => (w.id || w._id) !== id));
       }
-
-      setWorkouts((prevWorkouts) => prevWorkouts.filter((w) => w.id !== id));
+      else{
+        const data = await response.json();
+        alert(`Delete failed: ${data.error || 'Server error'} `);
+      }
     } catch (error) {
       console.error('failed to delete', error);
     }
   }
 
-  async function handleEditWorkout(id) {
-    let index = workouts.findIndex((w) => w.id === id);
-    if (index === -1) {
-      console.error('workout not found for id:', id);
-      return;
-    }
-
-    const newDuration = window.prompt(
-      'Enter new duration in minutes',
-      workouts[index].durationMinutes
-    );
-
-    if (newDuration === null || newDuration.trim() === '') return;
-
-    const newDurationNum = Number(newDuration);
-
-    if (Number.isNaN(newDurationNum) || newDurationNum < 0) {
-      alert('please enter a new valid non-negative number');
-      return;
-    }
-
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/workouts/` + id,
-        {
-          method: 'PATCH',
-          headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ durationMinutes: newDurationNum }),
-        } 
-      );
-
-      if (!response.ok) {
-        console.log(`Failed to edit workout, Status:${response.status}`);
-        return;
-      }
-
-      const res = await response.json();
-
-      setWorkouts((prevWorkouts) =>
-        prevWorkouts.map((w) => (w.id === id ? res : w))
-      );
-    } catch (error) {
-      console.error('Failed to edit workout', error);
-    }
-  }
-
   useEffect(() => {
     fetchWorkouts();
-  }, []);
+  }, [user]);
 
   async function handleAddWorkout(event) {
     event.preventDefault();
-
     setNewDateError('');
     setNewDurationError('');
     setNewDistanceError('');
-    setNewIntensityError('');
     setNewGeneralFormError('');
-    setNewFormStatus('idle');
-
+    
     let hasError = false;
+    if (!newDate) { setNewDateError('Date required'); hasError = true; }
+    if (!newDuration || Number(newDuration) <= 0) { setNewDurationError('Invalid duration'); hasError = true; }
+    if (newType === 'run' && (!newDistanceKm || Number(newDistanceKm) <= 0)) { setNewDistanceError('Invalid distance'); hasError = true; }
 
-    if (newDate.trim() === '') {
-      setNewDateError('please enter a date');
-      hasError = true;
-    }
-
-    if (newDuration.trim() === '') {
-      setNewDurationError('please enter duration');
-      hasError = true;
-    } else {
-      const durationNum = Number(newDuration);
-      if (Number.isNaN(durationNum) || durationNum <= 0) {
-        setNewDurationError('Duration must be a positive number of minutes');
-        hasError = true;
-      }
-    }
-
-    if (newType === 'run') {
-      if (newDistanceKm.trim() === '') {
-        setNewDistanceError('please enter distance');
-        hasError = true;
-      } else {
-        const distanceNum = Number(newDistanceKm);
-        if (Number.isNaN(distanceNum) || distanceNum <= 0) {
-          setNewDistanceError('distance must a positive number');
-          hasError = true;
-        }
-      }
-    } else {
-      if (newDistanceKm.trim() !== '') {
-        setNewDistanceError(
-          'Distance is only for runs.Please clear this field'
-        );
-        hasError = true;
-      }
-    }
-
-    if (newIntensity === '') {
-      setNewIntensityError('please enter an intensity');
-      hasError = true;
-    }
-
-    if (hasError === true) {
-      return;
-    }
+    if (hasError) return;
 
     const workoutToCreate = {
       type: newType,
       date: newDate,
       durationMinutes: Number(newDuration),
-      distanceKm: newType === 'run' && newDistanceKm !== '' ? Number(newDistanceKm) : null,
+      distanceKm: newType === 'run' ? Number(newDistanceKm) : null,
       intensity: newIntensity,
     };
 
     setNewFormStatus('submitting');
-
     try {
       const response = await fetch(`${API_BASE_URL}/api/workouts`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify(workoutToCreate),
       });
-
-      if (!response.ok) {
-        setNewFormStatus('error');
-        setNewGeneralFormError('failed to save workout. Please try again.');
-        console.error('Failed to create workout. Status:', response.status);
-        return;
-      }
-
       const createdWorkout = await response.json();
-
-      setWorkouts((prevWorkouts) => [...prevWorkouts, createdWorkout]);
-
-      setNewType('run');
-      setNewDate('');
-      setNewDuration('');
-      setNewDistanceKm('');
-      setNewIntensity('easy');
-      setNewFormStatus('success');
-      setNewGeneralFormError('');
+      
+      if (response.ok) {
+        setWorkouts((prev) => [...prev, createdWorkout]);
+        setNewDate(''); setNewDuration(''); setNewDistanceKm('');
+        setNewFormStatus('success');
+      } else {
+        setNewGeneralFormError(createdWorkout.error || 'Failed to save');
+        setNewFormStatus('error');
+      }
     } catch (error) {
       setNewFormStatus('error');
-      setNewGeneralFormError('Network error. Please try again.');
-      console.error('Failed to add workout:', error);
     }
   }
 
-  async function handleGenerateCoachFeedback(){
-    setNewCoachFeedback('');
+  async function handleGenerateCoachFeedback() {
     setNewCoachLoading(true);
     setNewCoachError('');
-
-    try{
+    try {
       const response = await fetch(`${API_BASE_URL}/api/coach/feedback`, {
-        method: 'GET',
-      })
-
-      if (!response.ok){
-        setNewCoachLoading(false);
-        setNewCoachError('Failed to generate feedback')
-        return;
-      } 
-
+        headers: getAuthHeaders()
+      });
       const data = await response.json();
-
-      setNewCoachFeedback(data.feedback);
+      if (response.ok) setNewCoachFeedback(data.feedback);
+      else setNewCoachError('Failed to load feedback');
+    } catch (err) {
+      setNewCoachError('Network error');
+    } finally {
       setNewCoachLoading(false);
     }
-    catch(err){
-      setNewCoachLoading(false);
-      setNewCoachError(err.message || 'Failed to generate feedback');
-      setNewCoachFeedback('');
-    }
   }
 
-  // === Filtering & stats ===
-
-  let filteredWorkouts = workouts;
-
-  if (newFilterType !== 'all') {
-    filteredWorkouts = filteredWorkouts.filter(
-      (w) => w.type === newFilterType
-    );
-  }
-
-  if (filterStartDate !== '') {
-    filteredWorkouts = filteredWorkouts.filter(
-      (w) => Date.parse(w.date) >= Date.parse(filterStartDate)
-    );
-  }
-
-  if (filterEndDate !== '') {
-    filteredWorkouts = filteredWorkouts.filter(
-      (w) => Date.parse(w.date) <= Date.parse(filterEndDate)
-    );
-  }
+  // Filtering
+  let filteredWorkouts = workouts.filter(w => {
+    const typeMatch = newFilterType === 'all' || w.type === newFilterType;
+    const startMatch = !filterStartDate || Date.parse(w.date) >= Date.parse(filterStartDate);
+    const endMatch = !filterEndDate || Date.parse(w.date) <= Date.parse(filterEndDate);
+    return typeMatch && startMatch && endMatch;
+  });
 
   const totalWorkouts = filteredWorkouts.length;
-  const totalDurationMinutes = filteredWorkouts.reduce(
-    (sum, w) => sum + (w.durationMinutes || 0),
-    0
-  );
-  const totalDistanceKm = filteredWorkouts.reduce(
-    (sum, w) => sum + (w.distanceKm || 0),
-    0
-  );
-
-  let durationStr;
-  if (totalDurationMinutes < 60) {
-    durationStr = totalDurationMinutes + ' minutes';
-  } else {
-    if (totalDurationMinutes % 60 === 0) {
-      durationStr = Math.floor(totalDurationMinutes / 60) + ':00 hours';
-    } else {
-      durationStr =
-        Math.floor(totalDurationMinutes / 60) +
-        ':' +
-        (totalDurationMinutes % 60) +
-        ' hours';
-    }
-  }
+  const totalDurationMinutes = filteredWorkouts.reduce((sum, w) => sum + (w.durationMinutes || 0), 0);
+  const totalDistanceKm = filteredWorkouts.reduce((sum, w) => sum + (w.distanceKm || 0), 0);
+  const durationStr = `${Math.floor(totalDurationMinutes / 60)}h ${totalDurationMinutes % 60}m`;
 
   return (
     <div className="App">
-      {/* Header */}
       <header className="app-header">
         <h1>Workout Tracker</h1>
-        <p className="app-subtitle">
-          Log your runs, gym sessions, and track your progress over time.
-        </p>
-      </header>
-
-      {/* Filters bar */}
-      <section className="filters-bar">
-        <div className="filters-row">
-          <select
-            value={newFilterType}
-            onChange={(e) => setNewFilterType(e.target.value)}
-          >
-            <option value="all">All</option>
-            <option value="run">Run</option>
-            <option value="gym">Gym</option>
-            <option value="basketball">Basketball</option>
-            <option value="surf">Surf</option>
-            <option value="other">Other</option>
-          </select>
-
-          <div className="date-filters">
-            <input
-              type="date"
-              value={filterStartDate}
-              onChange={(e) => setNewStartDate(e.target.value)}
-            />
-            <span className="date-range-separator">to</span>
-            <input
-              type="date"
-              value={filterEndDate}
-              onChange={(e) => setNewEndDate(e.target.value)}
-            />
-          </div>
-
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={fetchWorkouts}
-          >
-            Refresh workouts
-          </button>
-        </div>
-      </section>
-
-      {/* Main two-column layout */}
-      <main className="main-layout">
-        <div className="left-column">
-          <div className="dashboard-summary">
-            <h2>Dashboard Summary</h2>
-            <p>
-              Total workouts:{' '}
-              <span className="summary-number">{totalWorkouts}</span>
-            </p>
-            <p>
-              Total duration:{' '}
-              <span className="summary-number">{durationStr}</span>
-            </p>
-            <p>
-              Total distance (runs):{' '}
-              <span className="summary-number">{totalDistanceKm} km</span>
-            </p>
-          </div>
-
-          <div className='ai-feedback-card'>
-            <div className='ai-feedback-header'>
-              <h2 className='ai-feedback-title'>AI Coach Feedback</h2>
-              <button 
-              onClick={handleGenerateCoachFeedback} 
-              disabled={coachLoading} 
-              className='btn'>
-                {coachLoading ? 'Generating...' : 'Generate feedback'}
-              </button>
-            </div>
-
-            <div className='ai-feedback-body'>
-              {coachLoading && (
-                <p>Analyzing your workouts…</p>
-              )}
-
-              {!coachLoading && coachError && (
-                <p className="field-error">{coachError}</p>
-              )}
-
-              {!coachLoading && !coachError && coachFeedback && (
-                <pre className="ai-feedback-text">
-                  {coachFeedback}
-                </pre>
-              )}
-
-              {!coachLoading && !coachError && !coachFeedback && (
-                <p className="ai-feedback-empty">
-                  Click "Generate feedback" to get a short summary of your recent training.
-                </p>
-              )}
-            </div>
-          </div>
-          
-          <div className="section-header">
-            <h2 className="section-title">Recent Workouts</h2>
-            <span className="section-subtitle">Showing filtered results</span>
-          </div>
-
-          <div className="workout-list">
-            {filteredWorkouts.length === 0 && <p>No workouts yet.</p>}
-
-            {filteredWorkouts.map((workout) => (
-              <div key={workout.id} className={`workout-card workout-card--${workout.type}`}>
-                <h2>{workout.type}</h2>
-                <p>Date: {workout.date}</p>
-                <p>Duration: {workout.durationMinutes} minutes</p>
-                {workout.distanceKm !== null && (
-                  <p>Distance: {workout.distanceKm} km</p>
-                )}
-                
-                <div className="workout-meta-row">
-                  <span>Intensity:</span>
-                    <span
-                    className={
-                    'intensity-badge ' +
-                    (workout.intensity ? `intensity-${workout.intensity}` : 'intensity-na')
-                    }
-                    >
-                      {workout.intensity || 'n/a'}
-                    </span>
-                </div>
-
-                <div className="card-actions">
-                  <button
-                    className="btn btn-danger"
-                    onClick={() => handleDeleteWorkout(workout.id)}
-                  >
-                    Delete
-                  </button>
-                  <button
-                    className="btn btn-outline"
-                    onClick={() => handleEditWorkout(workout.id)}
-                  >
-                    Edit
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <aside className="right-column">
-          <div className="add-workout">
-            <h2>Add New Workout</h2>
-            <form onSubmit={handleAddWorkout}>
-              {/* general form error */}
-              {generalFormError && (
-                <p className="form-error">{generalFormError}</p>
-              )}
-
-              {/* Type */}
-              <div>
-                <label>
-                  Type:{' '}
-                  <select
-                    value={newType}
-                    onChange={(e) => {
-                      const selectedType = e.target.value;
-                      if (selectedType !== 'run') {
-                        setNewDistanceKm('');
-                      }
-                      setNewType(selectedType);
-                    }}
-                  >
-                    <option value="run">Run</option>
-                    <option value="gym">Gym</option>
-                    <option value="basketball">Basketball</option>
-                    <option value="surf">Surf</option>
-                    <option value="other">Other</option>
-                  </select>
-                </label>
-              </div>
-
-              {/* Date */}
-              <div>
-                <label>
-                  Date:{' '}
-                  <input
-                    type="date"
-                    value={newDate}
-                    onChange={(e) => setNewDate(e.target.value)}
-                  />
-                </label>
-                {dateError && (
-                  <p className="field-error">{dateError}</p>
-                )}
-              </div>
-
-              {/* Duration */}
-              <div>
-                <label>
-                  Duration (minutes):{' '}
-                  <input
-                    type="number"
-                    value={newDuration}
-                    onChange={(e) => setNewDuration(e.target.value)}
-                    min="0"
-                  />
-                </label>
-                {durationError && (
-                  <p className="field-error">{durationError}</p>
-                )}
-              </div>
-
-              {/* Distance (only for run) */}
-              <div>
-                {newType === 'run' && (
-                  <label>
-                    Distance in km (number):{' '}
-                    <input
-                      type="number"
-                      value={newDistanceKm}
-                      onChange={(e) => setNewDistanceKm(e.target.value)}
-                      min="0"
-                    />
-                  </label>
-                )}
-                {distanceError && (
-                  <p className="field-error">{distanceError}</p>
-                )}
-              </div>
-
-              {/* Intensity */}
-              <div>
-                <label>
-                  Intensity (easy, moderate, hard):{' '}
-                  <select
-                    value={newIntensity}
-                    onChange={(e) => setNewIntensity(e.target.value)}
-                  >
-                    <option value="easy">Easy</option>
-                    <option value="moderate">Moderate</option>
-                    <option value="hard">Hard</option>
-                  </select>
-                </label>
-                {intensityError && (
-                  <p className="field-error">{intensityError}</p>
-                )}
-              </div>
-
-              {/* Submit */}
-              <button
-                type="submit"
-                className="btn btn-primary"
-                disabled={formStatus === 'submitting'}
-              >
-                {formStatus === 'submitting' ? 'Saving...' : 'Add workout'}
-              </button>
+        {!user ? (
+          <div className="auth-section">
+            <h2>{isLogin ? 'Log In' : 'Sign Up'}</h2>
+            <form onSubmit={handleAuthSubmit} className="auth-form">
+              <input type="email" placeholder="Email" value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} />
+              <input type="password" placeholder="Password" value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} />
+              <button type='submit' className="btn btn-primary">{isLogin ? 'Log In' : 'Sign Up'}</button>
             </form>
+            <button className="btn-link" onClick={() => setIsLogin(!isLogin)}>
+              {isLogin ? "Need an account? Sign Up" : "Already have an account? Login"}
+            </button>
+            {authError && <p style={{ color: 'red' }}>{authError}</p>}
           </div>
-        </aside>
-      </main>
+        ) : (
+          <>
+            <div className="user-nav">
+              <span>Welcome, <strong>{user.email.split('@')[0]}</strong></span>
+              <button className="btn btn-secondary" onClick={handleLogout}>Log Out</button>
+            </div>
+            <p className="app-subtitle">Log your runs and track your progress.</p>
+
+            <section className="filters-bar">
+              <div className="filters-row">
+                <select value={newFilterType} onChange={(e) => setNewFilterType(e.target.value)}>
+                  <option value="all">All</option>
+                  <option value="run">Run</option>
+                  <option value="gym">Gym</option>
+                  <option value="basketball">Basketball</option>
+                  <option value="surf">Surf</option>
+                </select>
+                <div className="date-filters">
+                  <input type="date" value={filterStartDate} onChange={(e) => setNewStartDate(e.target.value)} />
+                  <span>to</span>
+                  <input type="date" value={filterEndDate} onChange={(e) => setNewEndDate(e.target.value)} />
+                </div>
+              </div>
+            </section>
+
+            <main className="main-layout">
+              <div className="left-column">
+                <div className="dashboard-summary">
+                  <h2>Dashboard Summary</h2>
+                  <p>Total workouts: {totalWorkouts}</p>
+                  <p>Total duration: {durationStr}</p>
+                  <p>Total distance: {totalDistanceKm} km</p>
+                </div>
+
+                <div className='ai-feedback-card'>
+                  <div className='ai-feedback-header'>
+                    <h2>AI Coach Feedback</h2>
+                    <button onClick={handleGenerateCoachFeedback} disabled={coachLoading} className='btn'>
+                      {coachLoading ? 'Generating...' : 'Generate feedback'}
+                    </button>
+                  </div>
+                  <div className='ai-feedback-body'>
+                    {coachFeedback && <pre className="ai-feedback-text">{coachFeedback}</pre>}
+                    {coachError && <p className="field-error">{coachError}</p>}
+                  </div>
+                </div>
+
+                <div className="workout-list">
+                  {filteredWorkouts.map((workout, index) => {
+                    
+                    // 1. This part 'decides' which icon to use based on the type
+                    let iconClass = 'fa-bolt'; // default icon
+                    if (workout.type === 'run') iconClass = 'fa-running';
+                    if (workout.type === 'gym') iconClass = 'fa-dumbbell';
+                    if (workout.type === 'basketball') iconClass = 'fa-basketball-ball';
+                    if (workout.type === 'surf') iconClass = 'fa-water';
+
+                    return (
+                      <div key={workout.id || workout._id || index} className={`workout-card workout-card--${workout.type}`}>
+                        
+                        {/* 2. We put the icon inside the H3 title */}
+                        <h3>
+                          <i className={`fas ${iconClass}`} style={{ marginRight: '10px', color: '#3b82f6' }}></i>
+                          {workout.type}
+                        </h3>
+
+                        <p>{workout.date} | {workout.durationMinutes} mins</p>
+                        
+                        <button className="btn btn-danger" onClick={() => handleDeleteWorkout(workout.id || workout._id)}>
+                          <i className="fas fa-trash-alt" style={{ marginRight: '5px' }}></i>
+                          Delete
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <aside className="right-column">
+                <div className="add-workout">
+                  <h2>Add New Workout</h2>
+                  <form onSubmit={handleAddWorkout}>
+                    {generalFormError && <p className="form-error">{generalFormError}</p>}
+                    
+                    {/* 1. Workout Type */}
+                    <div className="form-group">
+                      <label>Type</label>
+                      <select value={newType} onChange={(e) => setNewType(e.target.value)}>
+                        <option value="run">Run</option>
+                        <option value="gym">Gym</option>
+                        <option value="basketball">Basketball</option>
+                        <option value="surf">Surf</option>
+                      </select>
+                    </div>
+                    
+                    {/* 2. Date */}
+                    <div className="form-group">
+                      <label>Date</label>
+                      <input type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)} />
+                      {dateError && <p className="field-error">{dateError}</p>}
+                    </div>
+
+                    {/* 3. Duration */}
+                    <div className="form-group">
+                      <label>Duration (mins)</label>
+                      <input type="number" placeholder="45" value={newDuration} onChange={(e) => setNewDuration(e.target.value)} />
+                      {durationError && <p className="field-error">{durationError}</p>}
+                    </div>
+
+                    {/* 4. Distance (Only for Runs) */}
+                    {newType === 'run' && (
+                      <div className="form-group">
+                        <label>Distance (km)</label>
+                        <input 
+                          type="number" 
+                          placeholder="5.0" 
+                          value={newDistanceKm} 
+                          onChange={(e) => setNewDistanceKm(e.target.value)} 
+                        />
+                        {distanceError && <p className="field-error">{distanceError}</p>}
+                      </div>
+                    )}
+
+                    {/* 5. Intensity */}
+                    <div className="form-group">
+                      <label>Intensity</label>
+                      <select value={newIntensity} onChange={(e) => setNewIntensity(e.target.value)}>
+                        <option value="easy">Easy</option>
+                        <option value="moderate">Moderate</option>
+                        <option value="hard">Hard</option>
+                      </select>
+                    </div>
+
+                    <button type="submit" className="btn btn-primary" disabled={formStatus === 'submitting'}>
+                      {formStatus === 'submitting' ? 'Saving...' : 'Add Workout'}
+                    </button>
+                  </form>
+                </div>
+              </aside>
+            </main>
+          </>
+        )}
+      </header>
     </div>
   );
 }
