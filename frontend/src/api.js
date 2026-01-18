@@ -60,3 +60,5 @@ async function apiRequest(path, method, token, body){
     }
   
 }
+
+export { apiRequest };
