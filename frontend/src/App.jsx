@@ -31,6 +31,9 @@ function App() {
   const [isLogin, setIsLogin] = useState(true);
   const [authError, setAuthError] = useState('');
 
+  const[workoutsLoading, setWorkoutsLoading] = useState(false);
+  const [workoutsError, setWorkoutsError] = useState(null);
+
   const [user, setUser] = useState(() => {
     const savedUser = localStorage.getItem('workoutUser');
     return savedUser ? JSON.parse(savedUser) : null;
@@ -52,74 +55,69 @@ function App() {
 
   async function handleAuthSubmit(e) {
     e.preventDefault();
-    setAuthError('');
-    const url = isLogin ? '/api/users/login' : '/api/users/signup';
-    try {
-      const response = await fetch(`${API_BASE_URL}${url}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: authEmail, password: authPassword })
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        setAuthError(data.error);
+    setAuthError(null);
+    const path = isLogin ? '/api/users/login' : '/api/users/signup';
+    
+      const result = await apiRequest(path,'POST', null, {email: authEmail, password: authPassword });
+      
+      
+
+      if (!result.ok) {
+        setAuthError(result.errorMessage);
         return;
       }
       
-      localStorage.setItem('workoutUser', JSON.stringify(data));
-      setUser(data);
-      fetchWorkouts(data);
+      localStorage.setItem('workoutUser', JSON.stringify(result.data));
+      setUser(result.data);
+      fetchWorkouts(result.data);
       setAuthPassword('');
-    } catch (error) {
-      setAuthError("Could not connect to the server. Please try again later.");
-    }
   }
 
   async function fetchWorkouts(currentUser = user) {
     if (!currentUser || !currentUser.token) {
       setWorkouts([]);
+      setWorkoutsLoading(false);
+      setWorkoutsError(null);
       return;
     }
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/workouts`, {
-        headers: {
-          'Content-type': 'application/json',
-          'Authorization': `Bearer ${currentUser.token}`
-        }
-      });
-      const data = await response.json();
+    
+      setWorkoutsLoading(true);
+      setWorkoutsError(null);
+      
+      let path = `/api/workouts`;
+
+      const response = await apiRequest(path,'GET',currentUser.token, null);
+      
       if (response.ok) {
-        setWorkouts(data);
+        if (Array.isArray(response.data))
+          setWorkouts(response.data);
+        else
+          setWorkouts([]);
+
+        setWorkoutsError(null);
       } else {
-        setWorkouts([]); // Clear list if fetch fails
+        setWorkoutsError(response.errorMessage);
       }
-    } catch (e) {
-      console.error('failed', e);
-    }
+      setWorkoutsLoading(false);
   }
 
   async function handleDeleteWorkout(id) {
-    if (!user || !user.token) return;
+    if (!user || !user.token){
+      alert("Log in to delete workouts.");
+      return;
+    }
 
     if (!window.confirm("Are you sure you want to delete this workout?")) return;
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/workouts/${id}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${user.token}`
-        }
-      });
-      if (response.ok) {
+    
+      const result = await apiRequest(`/api/workouts/${id}`,'DELETE',user.token, null);
+      
+      if (result.ok) {
         setWorkouts((prevWorkouts) => prevWorkouts.filter((w) => (w.id || w._id) !== id));
       }
       else{
-        const data = await response.json();
-        alert(`Delete failed: ${data.error || 'Server error'} `);
+        
+        alert(`Delete failed: ${result.errorMessage || 'Server error'} `);
       }
-    } catch (error) {
-      console.error('failed to delete', error);
-    }
   }
 
   useEffect(() => {
@@ -132,6 +130,12 @@ function App() {
     setNewDurationError('');
     setNewDistanceError('');
     setNewGeneralFormError('');
+
+    if (!user || !user.token){
+      setNewGeneralFormError("Please log in to add a workout.");
+      setNewFormStatus('idle');
+      return;
+    }
     
     let hasError = false;
     if (!newDate) { setNewDateError('Date required'); hasError = true; }
@@ -149,41 +153,45 @@ function App() {
     };
 
     setNewFormStatus('submitting');
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/workouts`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(workoutToCreate),
-      });
-      const createdWorkout = await response.json();
-      
-      if (response.ok) {
-        setWorkouts((prev) => [...prev, createdWorkout]);
+
+    const result = await apiRequest('/api/workouts','POST',user.token, workoutToCreate);
+      if (result.ok) {
+        setWorkouts((prev) => [...prev, result.data]);
         setNewDate(''); setNewDuration(''); setNewDistanceKm('');
         setNewFormStatus('success');
       } else {
-        setNewGeneralFormError(createdWorkout.error || 'Failed to save');
+        setNewGeneralFormError(result.errorMessage || 'Failed to save');
         setNewFormStatus('error');
       }
-    } catch (error) {
-      setNewFormStatus('error');
-    }
   }
 
   async function handleGenerateCoachFeedback() {
     setNewCoachLoading(true);
     setNewCoachError('');
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/coach/feedback`, {
-        headers: getAuthHeaders()
-      });
-      const data = await response.json();
-      if (response.ok) setNewCoachFeedback(data.feedback);
-      else setNewCoachError('Failed to load feedback');
-    } catch (err) {
-      setNewCoachError('Network error');
-    } finally {
+
+    if (!user || !user.token){
+      setNewCoachError('Please log in to get feedback');
       setNewCoachLoading(false);
+      return;
+    }
+
+
+    const result = await apiRequest('/api/coach/feedback','GET',user.token,null);
+
+
+    try
+    {
+      if (result.ok) {
+      setNewCoachFeedback(result.data.feedback);
+      setNewCoachError(null);
+      }
+      else
+      {
+        setNewCoachError(result.errorMessage || 'failed to load feedback');
+      }
+    }
+    finally{
+      setNewCoachLoading(false);  
     }
   }
 
@@ -199,6 +207,46 @@ function App() {
   const totalDurationMinutes = filteredWorkouts.reduce((sum, w) => sum + (w.durationMinutes || 0), 0);
   const totalDistanceKm = filteredWorkouts.reduce((sum, w) => sum + (w.distanceKm || 0), 0);
   const durationStr = `${Math.floor(totalDurationMinutes / 60)}h ${totalDurationMinutes % 60}m`;
+
+  let workoutsContent;
+
+  if (workoutsLoading === true){
+    workoutsContent = "Workout list is loading.";
+  }else if (workoutsError !== null){
+    workoutsContent = "Error fetching workouts."
+  }else if (workouts.length === 0){
+    workoutsContent = "You haven't worked out yet. Get out there :)"
+  }else if (filteredWorkouts.length === 0){
+    workoutsContent = "You haven't worked out in the specified dates."
+  }else{
+    workoutsContent = filteredWorkouts.map((workout, index) => {
+                    
+                    // 1. This part 'decides' which icon to use based on the type
+                    let iconClass = 'fa-bolt'; // default icon
+                    if (workout.type === 'run') iconClass = 'fa-running';
+                    if (workout.type === 'gym') iconClass = 'fa-dumbbell';
+                    if (workout.type === 'basketball') iconClass = 'fa-basketball-ball';
+                    if (workout.type === 'surf') iconClass = 'fa-water';
+
+                    return (
+                      <div key={workout.id || workout._id || index} className={`workout-card workout-card--${workout.type}`}>
+                        
+                        {/* 2. We put the icon inside the H3 title */}
+                        <h3>
+                          <i className={`fas ${iconClass}`} style={{ marginRight: '10px', color: '#3b82f6' }}></i>
+                          {workout.type}
+                        </h3>
+
+                        <p>{workout.date} | {workout.durationMinutes} mins</p>
+                        
+                        <button className="btn btn-danger" onClick={() => handleDeleteWorkout(workout.id || workout._id)}>
+                          <i className="fas fa-trash-alt" style={{ marginRight: '5px' }}></i>
+                          Delete
+                        </button>
+                      </div>
+                    );
+                  })
+  }
 
   return (
     <div className="App">
@@ -265,33 +313,7 @@ function App() {
                 </div>
 
                 <div className="workout-list">
-                  {filteredWorkouts.map((workout, index) => {
-                    
-                    // 1. This part 'decides' which icon to use based on the type
-                    let iconClass = 'fa-bolt'; // default icon
-                    if (workout.type === 'run') iconClass = 'fa-running';
-                    if (workout.type === 'gym') iconClass = 'fa-dumbbell';
-                    if (workout.type === 'basketball') iconClass = 'fa-basketball-ball';
-                    if (workout.type === 'surf') iconClass = 'fa-water';
-
-                    return (
-                      <div key={workout.id || workout._id || index} className={`workout-card workout-card--${workout.type}`}>
-                        
-                        {/* 2. We put the icon inside the H3 title */}
-                        <h3>
-                          <i className={`fas ${iconClass}`} style={{ marginRight: '10px', color: '#3b82f6' }}></i>
-                          {workout.type}
-                        </h3>
-
-                        <p>{workout.date} | {workout.durationMinutes} mins</p>
-                        
-                        <button className="btn btn-danger" onClick={() => handleDeleteWorkout(workout.id || workout._id)}>
-                          <i className="fas fa-trash-alt" style={{ marginRight: '5px' }}></i>
-                          Delete
-                        </button>
-                      </div>
-                    );
-                  })}
+                  {workoutsContent}
                 </div>
               </div>
 

@@ -74,6 +74,7 @@ body {
   gap: 15px;
   font-size: 0.9rem;
   color: var(--text-secondary);
+  flex-wrap: wrap; /* helps on smaller widths */
 }
 
 /* === Filters Bar === */
@@ -191,6 +192,9 @@ body {
   font-size: 1.1rem;
   text-transform: capitalize;
   color: white;
+  display: flex;              /* makes icon + text align nicely */
+  align-items: center;
+  gap: 10px;
 }
 
 .workout-card p {
@@ -260,9 +264,9 @@ body {
   background: rgba(239, 68, 68, 0.1);
   color: var(--danger);
   border: 1px solid rgba(239, 68, 68, 0.2);
-  padding: 6px 14px;
-  border-radius: 8px;
-  font-size: 0.8rem;
+  padding: 10px 14px;          /* slightly taller for touch */
+  border-radius: 10px;
+  font-size: 0.85rem;
   margin-top: 10px;
 }
 
@@ -344,12 +348,14 @@ body {
   background: #475569;
 }
 
+/* Existing collapse */
 @media (max-width: 900px) {
   .main-layout {
     grid-template-columns: 1fr;
   }
 }
 
+/* Extra bits you already had */
 .workout-card-header {
   display: flex;
   justify-content: space-between;
@@ -381,4 +387,95 @@ body {
 
 .btn-danger i {
   margin-right: 6px;
+}
+
+/* =========================================================
+   MOBILE FIXES (new)
+   ========================================================= */
+
+@media (max-width: 600px) {
+  /* Reduce outer padding so content fits on phones */
+  #root {
+    padding: 12px;
+  }
+
+  .App {
+    padding: 16px 12px 28px;
+  }
+
+  .app-header h1 {
+    font-size: 2rem;
+  }
+
+  /* Make filter controls stack and fill width */
+  .filters-row {
+    padding: 12px;
+    gap: 10px;
+    justify-content: stretch;
+    align-items: stretch;
+  }
+
+  .filters-row select,
+  .filters-row input[type="date"] {
+    width: 100%;
+  }
+
+  /* Your JSX has a .date-filters wrapper; make it stack nicely */
+  .date-filters {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .date-filters span {
+    display: none; /* remove the "to" label that causes awkward wrapping */
+  }
+
+  /* Switch layout to flex so we can reorder columns on mobile */
+  .main-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  /* Put the Add Workout card first (right column first) */
+  .right-column {
+    order: -1;
+  }
+
+  /* Tighten card padding for mobile */
+  .ai-feedback-card,
+  .dashboard-summary,
+  .workout-list,
+  .add-workout {
+    padding: 16px;
+    border-radius: 16px;
+  }
+
+  /* Avoid nested scrolling on mobile */
+  .workout-list {
+    max-height: none;
+    overflow: visible;
+  }
+
+  /* Make workout cards denser and buttons easier to tap */
+  .workout-card {
+    padding: 12px;
+  }
+
+  .btn-primary {
+    width: 100%;
+  }
+
+  .btn-danger {
+    width: 100%;
+    padding: 12px 14px;
+  }
+
+  /* Auth box spacing */
+  .auth-section {
+    margin: 24px auto;
+    padding: 24px;
+  }
 }
