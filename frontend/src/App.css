@@ -1,5 +1,12 @@
 /* === Professional Dark Theme === */
 
+/* =========================================================
+   NEW: Global box sizing to prevent iOS overflow issues
+   ========================================================= */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
 :root {
   --bg-main: #0f172a;       /* Deep Navy/Black */
   --bg-card: #1e293b;       /* Slate Blue-Grey */
@@ -97,6 +104,9 @@ body {
   border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+
+  /* NEW: prevent children from painting outside the rounded card */
+  overflow: hidden;
 }
 
 .filters-row select,
@@ -108,6 +118,12 @@ body {
   color: white;
   font-size: 0.9rem;
   transition: all 0.2s ease;
+
+  /* NEW: make controls shrink correctly on iOS and keep same width */
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .filters-row select:focus,
@@ -328,6 +344,26 @@ body {
   color: #cbd5e1;
   border-left: 3px solid var(--accent-teal);
   font-size: 0.9rem;
+
+  /* NEW: keep inside the card even with long lines */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  max-width: 100%;
+}
+
+/* NEW: stabilize the AI feedback header so button never breaks layout */
+.ai-feedback-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* NEW: ensure the "Generate feedback" button behaves nicely in header */
+.ai-feedback-header .btn {
+  max-width: 100%;
 }
 
 /* Scrollbar Styling */
@@ -418,14 +454,24 @@ body {
   .filters-row select,
   .filters-row input[type="date"] {
     width: 100%;
+    max-width: 100%;
+    min-width: 0;
   }
 
   /* Your JSX has a .date-filters wrapper; make it stack nicely */
   .date-filters {
     width: 100%;
+    max-width: 100%;
+    min-width: 0;
     display: flex;
     flex-direction: column;
     gap: 8px;
+  }
+
+  .date-filters input[type="date"] {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
   }
 
   .date-filters span {
@@ -471,6 +517,16 @@ body {
   .btn-danger {
     width: 100%;
     padding: 12px 14px;
+  }
+
+  /* NEW: on mobile, stack AI header and make button full width */
+  .ai-feedback-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .ai-feedback-header .btn {
+    width: 100%;
   }
 
   /* Auth box spacing */
